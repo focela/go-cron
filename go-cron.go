@@ -1,13 +1,11 @@
-/*
- * Copyright 2025 Focela Authors.
- *
- * SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0.
- * See the LICENSE file in the project root for full license information.
- */
+// Copyright 2025 Focela Authors.
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0.
+// See the LICENSE file in the project root for full license information.
 
-// Package main provides a cron scheduler that waits for running jobs to complete before exiting.
+// Package main provides a cron scheduler with graceful shutdown.
 package main
 
 import (
@@ -19,6 +17,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/robfig/cron/v3"
 )
@@ -35,10 +34,11 @@ var (
 )
 
 const (
-	minArgs = 3
+	minArgs         = 3
+	shutdownTimeout = 30 * time.Second
 )
 
-// execute runs command with args and blocks until completion. Returns error on failure or cancel.
+// execute runs a command and blocks until completion.
 func execute(ctx context.Context, schedule string, command string, args []string) error {
 	logger.Info("executing command", "schedule", schedule, "command", command, "args", args)
 
@@ -55,7 +55,7 @@ func execute(ctx context.Context, schedule string, command string, args []string
 	return nil
 }
 
-// create initializes cron scheduler with schedule and command. Returns scheduler, WaitGroup, and error.
+// create initializes the cron scheduler and returns it with a WaitGroup.
 func create(ctx context.Context, schedule string, command string, args []string) (*cron.Cron, *sync.WaitGroup, error) {
 	wg := &sync.WaitGroup{}
 
@@ -71,15 +71,15 @@ func create(ctx context.Context, schedule string, command string, args []string)
 	logger.Info("new cron scheduled", "schedule", schedule)
 
 	c.AddFunc(schedule, func() {
-		// Check ctx before incrementing WaitGroup to avoid race on shutdown.
+		// Increment before context check to avoid shutdown race.
+		wg.Add(1)
+		defer wg.Done()
+
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-
-		wg.Add(1)
-		defer wg.Done()
 
 		if err := execute(ctx, schedule, command, args); err != nil {
 			logger.Error("command execution error", "schedule", schedule, "command", command, "error", err)
@@ -89,16 +89,27 @@ func create(ctx context.Context, schedule string, command string, args []string)
 	return c, wg, nil
 }
 
-// stop shuts down scheduler and blocks until all running jobs complete.
+// stop gracefully shuts down the scheduler with a timeout.
 func stop(c *cron.Cron, wg *sync.WaitGroup) {
 	logger.Info("stopping scheduler")
 	c.Stop()
-	logger.Info("waiting for running jobs to complete")
-	wg.Wait()
-	logger.Info("scheduler stopped successfully")
+	logger.Info("waiting for running jobs to complete", "timeout", shutdownTimeout)
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logger.Info("scheduler stopped successfully")
+	case <-time.After(shutdownTimeout):
+		logger.Warn("scheduler shutdown timeout reached, forcing exit")
+	}
 }
 
-// showVersion prints version information to stdout.
+// showVersion prints build version information.
 func showVersion() {
 	fmt.Printf("go-cron version %s\n", version)
 	fmt.Printf("commit: %s\n", commit)
@@ -106,7 +117,7 @@ func showVersion() {
 	fmt.Printf("built by: %s\n", builtBy)
 }
 
-// main parses args and runs cron scheduler with SIGINT/SIGTERM signal handling.
+// main parses arguments and runs the scheduler with signal handling.
 func main() {
 	if len(os.Args) >= 2 && os.Args[1] == "version" {
 		showVersion()
