@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/focela/go-cron/workflows/Goreleaser/badge.svg)](https://github.com/focela/go-cron/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/focela/go-cron)](https://goreportcard.com/report/github.com/focela/go-cron)
-[![Go Reference](https://pkg.go.dev/badge/github.com/focela/go-cron?status.svg)](https://pkg.go.dev/github.com/focela/go-cron?tab=doc)
+[![Go Reference](https://pkg.go.dev/badge/github.com/focela/go-cron.svg)](https://pkg.go.dev/github.com/focela/go-cron)
 [![Release](https://img.shields.io/github/release/focela/go-cron.svg?style=flat-square)](https://github.com/focela/go-cron/releases)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -114,7 +114,7 @@ Go-cron handles the following signals:
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.25 or later
 - Git
 
 ### Building
