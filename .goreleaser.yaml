@@ -1,0 +1,143 @@
+version: 2
+
+project_name: go-cron
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: go-cron
+    binary: go-cron
+    main: ./go-cron.go
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    flags:
+      - -trimpath
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+universal_binaries:
+  - id: go-cron
+    replace: true
+    name_template: "go-cron"
+    ids:
+      - go-cron
+
+archives:
+  - name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "all" }}all
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    wrap_in_directory: true
+    files:
+      - README.md
+      - LICENSE
+      - CONTRIBUTING.md
+      - CODE_OF_CONDUCT.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  entry_template: >-
+    * {{ .Subject }}
+    {{- if and .PullRequest (gt .PullRequest.Number 0) }}
+      (#{{ .PullRequest.Number }})
+      {{- with .PullRequest.User }}
+        {{- if .Login }} (@{{ .Login }}){{ end }}
+      {{- end }}
+    {{- end }}
+  group_template: |
+    ### {{ .Title }}
+  abbrev: 7
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Bug fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: "Enhancements"
+      regexp: "^.*chore[(\\w)]*:+.*$"
+      order: 2
+    - title: "Refactor"
+      regexp: "^.*refactor[(\\w)]*:+.*$"
+      order: 3
+    - title: "Performance improvements"
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 4
+    - title: "Build process updates"
+      regexp: ^.*?(build|ci)(\(.+\))??!?:.+$
+      order: 5
+    - title: "Tests"
+      regexp: "^.*test[(\\w)]*:+.*$"
+      order: 6
+    - title: "Security"
+      regexp: "^.*(sec|security)[(\\w)]*:+.*$"
+      order: 7
+    - title: "Documentation updates"
+      regexp: ^.*?docs?(\(.+\))??!?:.+$
+      order: 8
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore(deps):"
+      - "^style:"
+      - Merge pull request
+      - Merge branch
+      - go mod tidy
+
+release:
+  github:
+    owner: focela
+    name: go-cron
+  draft: false
+  prerelease: auto
+  mode: append
+  name_template: "{{ .Version }}"
+  header: |
+    # Go Cron ChangeLog
+    
+    ## {{ .Version }}
+  footer: ""
+
+announce:
+  skip: "{{gt .Patch 0}}"
